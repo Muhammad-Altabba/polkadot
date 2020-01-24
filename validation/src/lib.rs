@@ -571,30 +571,35 @@ impl<C, N, P, SC, TxPool, B> consensus::Environment<Block> for ProposerFactory<C
 {
 	type Proposer = Proposer<P, TxPool, B>;
 	type Error = Error;
+	type CreateProposer = futures::future::Ready<Result<Proposer<P, TxPool, B>, Error>>;
 
 	fn init(
 		&mut self,
 		parent_header: &Header,
-	) -> Result<Self::Proposer, Error> {
-		let parent_hash = parent_header.hash();
-		let parent_id = BlockId::hash(parent_hash);
+	) -> futures::future::Ready<Result<Self::Proposer, Error>> {
+		let func = || -> Result<Self::Proposer, Error> {
+			let parent_hash = parent_header.hash();
+			let parent_id = BlockId::hash(parent_hash);
 
-		let tracker = self.parachain_validation.get_or_instantiate(
-			parent_hash,
-			&self.keystore,
-			self.max_block_data_size,
-		)?;
+			let tracker = self.parachain_validation.get_or_instantiate(
+				parent_hash,
+				&self.keystore,
+				self.max_block_data_size,
+			)?;
 
-		Ok(Proposer {
-			client: self.parachain_validation.client.clone(),
-			tracker,
-			parent_hash,
-			parent_id,
-			parent_number: parent_header.number,
-			transaction_pool: self.transaction_pool.clone(),
-			slot_duration: self.babe_slot_duration,
-			backend: self.backend.clone(),
-		})
+			Ok(Proposer {
+				client: self.parachain_validation.client.clone(),
+				tracker,
+				parent_hash,
+				parent_id,
+				parent_number: parent_header.number,
+				transaction_pool: self.transaction_pool.clone(),
+				slot_duration: self.babe_slot_duration,
+				backend: self.backend.clone(),
+			})
+		};
+
+		ready(func())
 	}
 }
 
