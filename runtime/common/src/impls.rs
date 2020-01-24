@@ -16,7 +16,7 @@
 
 //! Auxillary struct/enums for polkadot runtime.
 
-use primitives::Balance;
+use polkadot_primitives::Balance;
 use sp_runtime::traits::{Convert, Saturating};
 use sp_runtime::{Fixed64, Perbill};
 use frame_support::weights::Weight;
@@ -24,44 +24,44 @@ use frame_support::traits::{OnUnbalanced, Imbalance, Currency, Get};
 use crate::{MaximumBlockWeight, NegativeImbalance};
 
 /// Logic for the author to get a portion of fees.
-pub struct ToAuthor<R>(rstd::marker::PhantomData<R>);
+pub struct ToAuthor<R>(sp_std::marker::PhantomData<R>);
 
 impl<R> OnUnbalanced<NegativeImbalance<R>> for ToAuthor<R>
 where
-	R: balances::Trait + authorship::Trait,
-	<R as system::Trait>::AccountId: From<primitives::AccountId>,
-	<R as system::Trait>::AccountId: Into<primitives::AccountId>,
-	<R as system::Trait>::Event: From<balances::RawEvent<
-		<R as system::Trait>::AccountId,
-		<R as balances::Trait>::Balance,
-		balances::DefaultInstance>
+	R: pallet_balances::Trait + pallet_authorship::Trait,
+	<R as frame_system::Trait>::AccountId: From<polkadot_primitives::AccountId>,
+	<R as frame_system::Trait>::AccountId: Into<polkadot_primitives::AccountId>,
+	<R as frame_system::Trait>::Event: From<pallet_balances::RawEvent<
+		<R as frame_system::Trait>::AccountId,
+		<R as pallet_balances::Trait>::Balance,
+		pallet_balances::DefaultInstance>
 	>,
 {
 	fn on_nonzero_unbalanced(amount: NegativeImbalance<R>) {
 		let numeric_amount = amount.peek();
-		let author = <authorship::Module<R>>::author();
-		<balances::Module<R>>::resolve_creating(&<authorship::Module<R>>::author(), amount);
-		<system::Module<R>>::deposit_event(balances::RawEvent::Deposit(author, numeric_amount));
+		let author = <pallet_authorship::Module<R>>::author();
+		<pallet_balances::Module<R>>::resolve_creating(&<pallet_authorship::Module<R>>::author(), amount);
+		<frame_system::Module<R>>::deposit_event(pallet_balances::RawEvent::Deposit(author, numeric_amount));
 	}
 }
 
 /// Converter for currencies to votes.
-pub struct CurrencyToVoteHandler<R>(rstd::marker::PhantomData<R>);
+pub struct CurrencyToVoteHandler<R>(sp_std::marker::PhantomData<R>);
 
 impl<R> CurrencyToVoteHandler<R>
 where
-	R: balances::Trait,
+	R: pallet_balances::Trait,
 	R::Balance: Into<u128>,
 {
 	fn factor() -> u128 {
-		let issuance: u128 = <balances::Module<R>>::total_issuance().into();
+		let issuance: u128 = <pallet_balances::Module<R>>::total_issuance().into();
 		(issuance / u64::max_value() as u128).max(1)
 	}
 }
 
 impl<R> Convert<u128, u64> for CurrencyToVoteHandler<R>
 where
-	R: balances::Trait,
+	R: pallet_balances::Trait,
 	R::Balance: Into<u128>,
 {
 	fn convert(x: u128) -> u64 { (x / Self::factor()) as u64 }
@@ -69,7 +69,7 @@ where
 
 impl<R> Convert<u128, u128> for CurrencyToVoteHandler<R>
 where
-	R: balances::Trait,
+	R: pallet_balances::Trait,
 	R::Balance: Into<u128>,
 {
 	fn convert(x: u128) -> u128 { x * Self::factor() }
@@ -79,7 +79,7 @@ where
 /// node's balance type.
 ///
 /// This should typically create a mapping between the following ranges:
-///   - [0, system::MaximumBlockWeight]
+///   - [0, frame_system::MaximumBlockWeight]
 ///   - [Balance::min, Balance::max]
 ///
 /// Yet, it can be used for any other sort of change to weight-fee. Some examples being:
@@ -102,11 +102,11 @@ impl Convert<Weight, Balance> for WeightToFee {
 ///
 /// Where `target_weight` must be given as the `Get` implementation of the `T` generic type.
 /// https://research.web3.foundation/en/latest/polkadot/Token%20Economics/#relay-chain-transaction-fees
-pub struct TargetedFeeAdjustment<T, R>(rstd::marker::PhantomData<(T, R)>);
+pub struct TargetedFeeAdjustment<T, R>(sp_std::marker::PhantomData<(T, R)>);
 
-impl<T: Get<Perbill>, R: system::Trait> Convert<Fixed64, Fixed64> for TargetedFeeAdjustment<T, R> {
+impl<T: Get<Perbill>, R: frame_system::Trait> Convert<Fixed64, Fixed64> for TargetedFeeAdjustment<T, R> {
 	fn convert(multiplier: Fixed64) -> Fixed64 {
-		let block_weight = <system::Module<R>>::all_extrinsics_weight();
+		let block_weight = <frame_system::Module<R>>::all_extrinsics_weight();
 		let max_weight = MaximumBlockWeight::get();
 		let target_weight = (T::get() * max_weight) as u128;
 		let block_weight = block_weight as u128;

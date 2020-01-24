@@ -16,13 +16,13 @@
 
 //! Module to process claims from Ethereum addresses.
 
-use rstd::prelude::*;
+use sp_std::prelude::*;
 use sp_io::{hashing::keccak_256, crypto::secp256k1_ecdsa_recover};
 use frame_support::{decl_event, decl_storage, decl_module};
 use frame_support::weights::SimpleDispatchInfo;
 use frame_support::traits::{Currency, Get, VestingCurrency};
-use system::{ensure_root, ensure_none};
-use codec::{Encode, Decode};
+use frame_system::{ensure_root, ensure_none};
+use parity_scale_codec::{Encode, Decode};
 #[cfg(feature = "std")]
 use serde::{self, Serialize, Deserialize, Serializer, Deserializer};
 #[cfg(feature = "std")]
@@ -32,15 +32,16 @@ use sp_runtime::{
 		TransactionLongevity, TransactionValidity, ValidTransaction, InvalidTransaction
 	},
 };
-use primitives::ValidityError;
-use system;
+use polkadot_primitives::ValidityError;
+use frame_system;
+use frame_system as system;
 
-type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
+type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 
 /// Configuration trait.
-pub trait Trait: system::Trait {
+pub trait Trait: frame_system::Trait {
 	/// The overarching event type.
-	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 	type Currency: Currency<Self::AccountId>
 		+ VestingCurrency<Self::AccountId, Moment=Self::BlockNumber>;
 	type Prefix: Get<&'static [u8]>;
@@ -86,8 +87,8 @@ impl PartialEq for EcdsaSignature {
 	}
 }
 
-impl rstd::fmt::Debug for EcdsaSignature {
-	fn fmt(&self, f: &mut rstd::fmt::Formatter<'_>) -> rstd::fmt::Result {
+impl sp_std::fmt::Debug for EcdsaSignature {
+	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
 		write!(f, "EcdsaSignature({:?})", &self.0[..])
 	}
 }
@@ -95,7 +96,7 @@ impl rstd::fmt::Debug for EcdsaSignature {
 decl_event!(
 	pub enum Event<T> where
 		Balance = BalanceOf<T>,
-		AccountId = <T as system::Trait>::AccountId
+		AccountId = <T as frame_system::Trait>::AccountId
 	{
 		/// Someone claimed some DOTs.
 		Claimed(AccountId, EthereumAddress, Balance),
@@ -289,7 +290,7 @@ mod tests {
 		pub const MaximumBlockLength: u32 = 4 * 1024 * 1024;
 		pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
 	}
-	impl system::Trait for Test {
+	impl frame_system::Trait for Test {
 		type Origin = Origin;
 		type Call = ();
 		type Index = u64;
@@ -314,7 +315,7 @@ mod tests {
 		pub const CreationFee: u64 = 0;
 	}
 
-	impl balances::Trait for Test {
+	impl pallet_balances::Trait for Test {
 		type Balance = u64;
 		type OnFreeBalanceZero = ();
 		type OnReapAccount = System;
@@ -336,7 +337,7 @@ mod tests {
 		type Currency = Balances;
 		type Prefix = Prefix;
 	}
-	type System = system::Module<Test>;
+	type System = frame_system::Module<Test>;
 	type Balances = balances::Module<Test>;
 	type Claims = Module<Test>;
 
@@ -366,7 +367,7 @@ mod tests {
 	// This function basically just builds a genesis storage key/value store according to
 	// our desired mockup.
 	fn new_test_ext() -> sp_io::TestExternalities {
-		let mut t = system::GenesisConfig::default().build_storage::<Test>().unwrap();
+		let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 		// We use default for brevity, but you can configure as desired if needed.
 		balances::GenesisConfig::<Test>::default().assimilate_storage(&mut t).unwrap();
 		GenesisConfig::<Test>{

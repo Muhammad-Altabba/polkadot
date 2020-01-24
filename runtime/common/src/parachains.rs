@@ -16,17 +16,17 @@
 
 //! Main parachains logic. For now this is just the determination of which validators do what.
 
-use rstd::prelude::*;
-use rstd::result;
-use rstd::collections::btree_map::BTreeMap;
-use codec::{Encode, Decode};
+use sp_std::prelude::*;
+use sp_std::result;
+use sp_std::collections::btree_map::BTreeMap;
+use parity_scale_codec::{Encode, Decode};
 
 use sp_runtime::traits::{
 	Hash as HashT, BlakeTwo256, Saturating, One, Zero, Dispatchable,
 	AccountIdConversion, BadOrigin,
 };
 use frame_support::weights::SimpleDispatchInfo;
-use primitives::{
+use polkadot_primitives::{
 	Hash, Balance,
 	parachain::{
 		self, Id as ParaId, Chain, DutyRoster, AttestedCandidate, Statement, ParachainDispatchOrigin,
@@ -39,9 +39,9 @@ use frame_support::{
 	traits::{Currency, Get, WithdrawReason, ExistenceRequirement, Randomness},
 };
 
-use inherents::{ProvideInherent, InherentData, MakeFatalError, InherentIdentifier};
+use sp_inherents::{ProvideInherent, InherentData, MakeFatalError, InherentIdentifier};
 
-use system::ensure_none;
+use frame_system::ensure_none;
 use crate::attestations::{self, IncludedBlocks};
 use crate::registrar::Registrar;
 
@@ -103,17 +103,17 @@ impl<AccountId, T: Currency<AccountId>> ParachainCurrency<AccountId> for T where
 }
 
 /// Interface to the persistent (stash) identities of the current validators.
-pub struct ValidatorIdentities<T>(rstd::marker::PhantomData<T>);
+pub struct ValidatorIdentities<T>(sp_std::marker::PhantomData<T>);
 
-impl<T: session::Trait> Get<Vec<T::ValidatorId>> for ValidatorIdentities<T> {
+impl<T: pallet_session::Trait> Get<Vec<T::ValidatorId>> for ValidatorIdentities<T> {
 	fn get() -> Vec<T::ValidatorId> {
-		<session::Module<T>>::validators()
+		<pallet_session::Module<T>>::validators()
 	}
 }
 
 pub trait Trait: attestations::Trait {
 	/// The outer origin type.
-	type Origin: From<Origin> + From<system::RawOrigin<Self::AccountId>>;
+	type Origin: From<Origin> + From<frame_system::RawOrigin<Self::AccountId>>;
 
 	/// The outer call dispatch type.
 	type Call: Parameter + Dispatchable<Origin=<Self as Trait>::Origin>;
@@ -196,7 +196,7 @@ decl_storage! {
 
 decl_module! {
 	/// Parachains module.
-	pub struct Module<T: Trait> for enum Call where origin: <T as system::Trait>::Origin {
+	pub struct Module<T: Trait> for enum Call where origin: <T as frame_system::Trait>::Origin {
 		/// Provide candidate receipts for parachains, in ascending order by id.
 		#[weight = SimpleDispatchInfo::FixedNormal(1_000_000)]
 		pub fn set_heads(origin, heads: Vec<AttestedCandidate>) -> DispatchResult {
@@ -247,7 +247,7 @@ decl_module! {
 				}
 
 				let para_blocks = Self::check_candidates(&heads, &active_parachains)?;
-				let current_number = <system::Module<T>>::block_number();
+				let current_number = <frame_system::Module<T>>::block_number();
 
 				<attestations::Module<T>>::note_included(&heads, para_blocks);
 
@@ -302,7 +302,7 @@ impl<T: Trait> Module<T> {
 		// are applied before regular transactions, a parachain candidate could
 		// be registered before the `UpdateHeads` inherent is processed. If so, messages
 		// could be sent to a parachain in the block it is registered.
-		<Watermarks<T>>::insert(id, <system::Module<T>>::block_number().saturating_sub(One::one()));
+		<Watermarks<T>>::insert(id, <frame_system::Module<T>>::block_number().saturating_sub(One::one()));
 	}
 
 	pub fn cleanup_para(
@@ -315,7 +315,7 @@ impl<T: Trait> Module<T> {
 
 		// clear all routing entries _to_. But not those _from_.
 		if let Some(watermark) = watermark {
-			let now = <system::Module<T>>::block_number();
+			let now = <frame_system::Module<T>>::block_number();
 
 			// iterate over all blocks between watermark and now + 1 (since messages might
 			// have already been sent to `id` in this block.
@@ -334,11 +334,11 @@ impl<T: Trait> Module<T> {
 		if let Ok(message_call) = <T as Trait>::Call::decode(&mut &data[..]) {
 			let origin: <T as Trait>::Origin = match origin {
 				ParachainDispatchOrigin::Signed =>
-					system::RawOrigin::Signed(id.into_account()).into(),
+					frame_system::RawOrigin::Signed(id.into_account()).into(),
 				ParachainDispatchOrigin::Parachain =>
 					Origin::Parachain(id).into(),
 				ParachainDispatchOrigin::Root =>
-					system::RawOrigin::Root.into(),
+					frame_system::RawOrigin::Root.into(),
 			};
 			let _ok = message_call.dispatch(origin).is_ok();
 			// Not much to do with the result as it is. It's up to the parachain to ensure that the
@@ -403,7 +403,7 @@ impl<T: Trait> Module<T> {
 			<Heads>::insert(id, &head.candidate.head_data.0);
 
 			let last_watermark = <Watermarks<T>>::mutate(id, |mark| {
-				rstd::mem::replace(mark, Some(watermark))
+				sp_std::mem::replace(mark, Some(watermark))
 			});
 
 			if let Some(last_watermark) = last_watermark {
@@ -551,7 +551,7 @@ impl<T: Trait> Module<T> {
 			let offset = (i * 4 % 32) as usize;
 
 			// number of roles remaining to select from.
-			let remaining = rstd::cmp::max(1, (validator_count - i) as usize);
+			let remaining = sp_std::cmp::max(1, (validator_count - i) as usize);
 
 			// 8 32-bit ints per 256-bit seed.
 			let val_index = u32::decode(&mut &seed[offset..offset + 4])
@@ -578,10 +578,10 @@ impl<T: Trait> Module<T> {
 	/// Yields a structure containing all unrouted ingress to the parachain.
 	pub fn ingress(to: ParaId, since: Option<T::BlockNumber>) -> Option<Vec<(T::BlockNumber, BlockIngressRoots)>> {
 		let watermark = <Watermarks<T>>::get(to)?;
-		let now = <system::Module<T>>::block_number();
+		let now = <frame_system::Module<T>>::block_number();
 
 		let watermark_since = watermark.saturating_add(One::one());
-		let since = rstd::cmp::max(since.unwrap_or(Zero::zero()), watermark_since);
+		let since = sp_std::cmp::max(since.unwrap_or(Zero::zero()), watermark_since);
 		if since > now {
 			return Some(Vec::new());
 		}
@@ -656,9 +656,9 @@ impl<T: Trait> Module<T> {
 	fn check_candidates(
 		attested_candidates: &[AttestedCandidate],
 		active_parachains: &[(ParaId, Option<(CollatorId, Retriable)>)]
-	) -> rstd::result::Result<IncludedBlocks<T>, sp_runtime::DispatchError>
+	) -> sp_std::result::Result<IncludedBlocks<T>, sp_runtime::DispatchError>
 	{
-		use primitives::parachain::ValidityAttestation;
+		use polkadot_primitives::parachain::ValidityAttestation;
 		use sp_runtime::traits::AppVerify;
 
 		// returns groups of slices that have the same chain ID.
@@ -728,7 +728,7 @@ impl<T: Trait> Module<T> {
 
 		let sorted_validators = make_sorted_duties(&duty_roster.validator_duty);
 
-		let parent_hash = <system::Module<T>>::parent_hash();
+		let parent_hash = <frame_system::Module<T>>::parent_hash();
 		let localized_payload = |statement: Statement| localized_payload(statement, parent_hash);
 
 		let mut validator_groups = GroupedDutyIter::new(&sorted_validators[..]);
@@ -811,8 +811,8 @@ impl<T: Trait> Module<T> {
 		}
 
 		Ok(IncludedBlocks {
-			actual_number: <system::Module<T>>::block_number(),
-			session: <session::Module<T>>::current_index(),
+			actual_number: <frame_system::Module<T>>::block_number(),
+			session: <pallet_session::Module<T>>::current_index(),
 			random_seed,
 			active_parachains: active_parachains.iter().map(|x| x.0).collect(),
 			para_blocks: para_block_hashes,
@@ -847,7 +847,7 @@ impl<T: Trait> sp_runtime::BoundToRuntimeAppPublic for Module<T> {
 	type Public = ValidatorId;
 }
 
-impl<T: Trait> session::OneSessionHandler<T::AccountId> for Module<T> {
+impl<T: Trait> pallet_session::OneSessionHandler<T::AccountId> for Module<T> {
 	type Key = ValidatorId;
 
 	fn on_genesis_session<'a, I: 'a>(validators: I)
@@ -871,7 +871,7 @@ pub type InherentType = Vec<AttestedCandidate>;
 
 impl<T: Trait> ProvideInherent for Module<T> {
 	type Call = Call<T>;
-	type Error = MakeFatalError<inherents::Error>;
+	type Error = MakeFatalError<sp_inherents::Error>;
 	const INHERENT_IDENTIFIER: InherentIdentifier = NEW_HEADS_IDENTIFIER;
 
 	fn create_inherent(data: &InherentData) -> Option<Self::Call> {
@@ -942,7 +942,7 @@ mod tests {
 		pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
 	}
 
-	impl system::Trait for Test {
+	impl frame_system::Trait for Test {
 		type Origin = Origin;
 		type Call = Call;
 		type Index = u64;
@@ -967,11 +967,11 @@ mod tests {
 		pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(17);
 	}
 
-	impl session::Trait for Test {
+	impl pallet_session::Trait for Test {
 		type OnSessionEnding = ();
 		type Keys = UintAuthorityId;
-		type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
-		type SessionHandler = session::TestSessionHandler;
+		type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
+		type SessionHandler = pallet_session::TestSessionHandler;
 		type Event = ();
 		type SelectInitialValidators = staking::Module<Self>;
 		type ValidatorId = u64;
@@ -979,7 +979,7 @@ mod tests {
 		type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
 	}
 
-	impl session::historical::Trait for Test {
+	impl pallet_session::historical::Trait for Test {
 		type FullIdentification = staking::Exposure<u64, Balance>;
 		type FullIdentificationOf = staking::ExposureOf<Self>;
 	}
@@ -1062,7 +1062,7 @@ mod tests {
 		type SessionsPerEra = SessionsPerEra;
 		type BondingDuration = BondingDuration;
 		type SlashDeferDuration = SlashDeferDuration;
-		type SlashCancelOrigin = system::EnsureRoot<Self::AccountId>;
+		type SlashCancelOrigin = frame_system::EnsureRoot<Self::AccountId>;
 		type SessionInterface = Self;
 		type Time = timestamp::Module<Test>;
 		type RewardCurve = RewardCurve;
@@ -1114,7 +1114,7 @@ mod tests {
 	}
 
 	type Parachains = Module<Test>;
-	type System = system::Module<Test>;
+	type System = frame_system::Module<Test>;
 	type RandomnessCollectiveFlip = randomness_collective_flip::Module<Test>;
 	type Registrar = registrar::Module<Test>;
 
@@ -1122,7 +1122,7 @@ mod tests {
 		use staking::StakerStatus;
 		use babe::AuthorityId as BabeAuthorityId;
 
-		let mut t = system::GenesisConfig::default().build_storage::<Test>().unwrap();
+		let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
 		let authority_keys = [
 			Sr25519Keyring::Alice,
@@ -1165,7 +1165,7 @@ mod tests {
 			_phdata: Default::default(),
 		}.assimilate_storage(&mut t).unwrap();
 
-		session::GenesisConfig::<Test> {
+		pallet_session::GenesisConfig::<Test> {
 			keys: session_keys,
 		}.assimilate_storage(&mut t).unwrap();
 
@@ -1196,7 +1196,7 @@ mod tests {
 
 	fn make_attestations(candidate: &mut AttestedCandidate) {
 		let mut vote_implicit = false;
-		let parent_hash = <system::Module<Test>>::parent_hash();
+		let parent_hash = <frame_system::Module<Test>>::parent_hash();
 
 		let (duty_roster, _) = Parachains::calculate_duty_roster();
 		let candidate_hash = candidate.candidate.hash();

@@ -6,41 +6,41 @@ edition = "2018"
 
 [dependencies]
 bitvec = { version = "0.15.2", default-features = false, features = ["alloc"] }
-codec = { package = "parity-scale-codec", version = "1.1.0", default-features = false, features = ["derive"] }
+parity-scale-codec = { version = "1.1.0", default-features = false, features = ["derive"] }
 log = { version = "0.3.9", optional = true }
 rustc-hex = { version = "2.0.1", default-features = false }
 serde = { version = "1.0.102", default-features = false }
 serde_derive = { version = "1.0.102", optional = true }
 
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch", default-features = false }
-inherents = { package = "sp-inherents", git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
-rstd = { package = "sp-std", git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
+sp-inherents = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
 sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
 sp-staking = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
 sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
 
-authorship = { package = "pallet-authorship", git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
-balances = { package = "pallet-balances", git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
-session = { package = "pallet-session", git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
+pallet-authorship = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
+pallet-balances = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
+pallet-session = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
-staking = { package = "pallet-staking", git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
-system = { package = "frame-system", git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
-timestamp = { package = "pallet-timestamp", git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
+pallet-staking = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
 
-primitives = { package = "polkadot-primitives", path = "../../primitives", default-features = false }
+polkadot-primitives = { path = "../../primitives", default-features = false }
 polkadot-parachain = { path = "../../parachain", default-features = false }
 
 [dev-dependencies]
 hex-literal = "0.2.1"
 libsecp256k1 = "0.3.2"
 tiny-keccak = "1.5.0"
-keyring = { package = "sp-keyring", git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
+sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
 sp-trie = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
-babe = { package = "pallet-babe", git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
-randomness-collective-flip = { package = "pallet-randomness-collective-flip", git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
+pallet-babe = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
+pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
 pallet-staking-reward-curve = { git = "https://github.com/paritytech/substrate", branch = "bkchr-cumulus-branch" }
-treasury = { package = "pallet-treasury", git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
+pallet-treasury = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "bkchr-cumulus-branch" }
 trie-db = "0.18.0"
 serde_json = "1.0.41"
 
@@ -49,24 +49,24 @@ default = []
 no_std = []
 std = [
 	"bitvec/std",
-	"primitives/std",
+	"polkadot-primitives/std",
 	"rustc-hex/std",
-	"codec/std",
-	"inherents/std",
+	"parity-scale-codec/std",
+	"sp-inherents/std",
 	"sp-core/std",
 	"polkadot-parachain/std",
 	"sp-api/std",
-	"rstd/std",
+	"sp-std/std",
 	"sp-io/std",
 	"frame-support/std",
-	"authorship/std",
-	"balances/std",
+	"pallet-authorship/std",
+	"pallet-balances/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"session/std",
-	"staking/std",
-	"system/std",
-	"timestamp/std",
+	"pallet-session/std",
+	"pallet-staking/std",
+	"frame-system/std",
+	"pallet-timestamp/std",
 	"serde_derive",
 	"serde/std",
 	"log",

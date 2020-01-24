@@ -18,10 +18,10 @@
 //! registered and which are scheduled. Doesn't manage any of the actual execution/validation logic
 //! which is left to `parachains.rs`.
 
-use rstd::{prelude::*, result};
+use sp_std::{prelude::*, result};
 #[cfg(any(feature = "std", test))]
-use rstd::marker::PhantomData;
-use codec::{Encode, Decode};
+use sp_std::marker::PhantomData;
+use parity_scale_codec::{Encode, Decode};
 
 use sp_runtime::{
 	transaction_validity::{TransactionValidityError, ValidTransaction, TransactionValidity},
@@ -33,13 +33,14 @@ use frame_support::{
 	dispatch::{DispatchResult, IsSubType}, traits::{Get, Currency, ReservableCurrency},
 	weights::{SimpleDispatchInfo, DispatchInfo},
 };
-use system::{self, ensure_root, ensure_signed};
-use primitives::parachain::{
+use frame_system::{self, ensure_root, ensure_signed};
+use polkadot_primitives::parachain::{
 	Id as ParaId, CollatorId, Scheduling, LOWEST_USER_ID, SwapAux, Info as ParaInfo, ActiveParas,
 	Retriable
 };
 use crate::parachains;
 use sp_runtime::transaction_validity::InvalidTransaction;
+use frame_system as system;
 
 /// Parachain registration API.
 pub trait Registrar<AccountId> {
@@ -103,17 +104,17 @@ impl<T: Trait> Registrar<T::AccountId> for Module<T> {
 }
 
 type BalanceOf<T> =
-	<<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
+	<<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 
 pub trait Trait: parachains::Trait {
 	/// The overarching event type.
-	type Event: From<Event> + Into<<Self as system::Trait>::Event>;
+	type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
 
 	/// The aggregated origin type must support the parachains origin. We require that we can
 	/// infallibly convert between this origin and the system origin, but in reality, they're the
 	/// same type, we just can't express that to the Rust type system without writing a `where`
 	/// clause everywhere.
-	type Origin: From<<Self as system::Trait>::Origin>
+	type Origin: From<<Self as frame_system::Trait>::Origin>
 		+ Into<result::Result<parachains::Origin, <Self as Trait>::Origin>>;
 
 	/// The system's currency for parathread payment.
@@ -189,7 +190,7 @@ fn build<T: Trait>(config: &GenesisConfig<T>) {
 	Parachains::put(&only_ids);
 
 	for (id, code, genesis) in p {
-		Paras::insert(id, &primitives::parachain::PARACHAIN_INFO);
+		Paras::insert(id, &polkadot_primitives::parachain::PARACHAIN_INFO);
 		// no ingress -- a chain cannot be routed to until it is live.
 		<parachains::Code>::insert(&id, &code);
 		<parachains::Heads>::insert(&id, &genesis);
@@ -216,7 +217,7 @@ pub fn swap_ordered_existence<T: PartialOrd + Ord + Copy>(ids: &mut [T], one: T,
 
 decl_module! {
 	/// Parachains module.
-	pub struct Module<T: Trait> for enum Call where origin: <T as system::Trait>::Origin {
+	pub struct Module<T: Trait> for enum Call where origin: <T as frame_system::Trait>::Origin {
 		fn deposit_event() = default;
 
 		/// Register a parachain with given code.
@@ -332,13 +333,13 @@ decl_module! {
 				Parachains::mutate(|ids| swap_ordered_existence(ids, id, other));
 				Paras::mutate(id, |i|
 					Paras::mutate(other, |j|
-						rstd::mem::swap(i, j)
+						sp_std::mem::swap(i, j)
 					)
 				);
 
 				<Debtors<T>>::mutate(id, |i|
 					<Debtors<T>>::mutate(other, |j|
-						rstd::mem::swap(i, j)
+						sp_std::mem::swap(i, j)
 					)
 				);
 				let _ = T::SwapAux::on_swap(id, other);
@@ -481,13 +482,13 @@ impl<T: Trait> ActiveParas for Module<T> {
 
 /// Ensure that parathread selections happen prioritized by fees.
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
-pub struct LimitParathreadCommits<T: Trait + Send + Sync>(rstd::marker::PhantomData<T>) where
-	<T as system::Trait>::Call: IsSubType<Module<T>, T>;
+pub struct LimitParathreadCommits<T: Trait + Send + Sync>(sp_std::marker::PhantomData<T>) where
+	<T as frame_system::Trait>::Call: IsSubType<Module<T>, T>;
 
-impl<T: Trait + Send + Sync> rstd::fmt::Debug for LimitParathreadCommits<T> where
-	<T as system::Trait>::Call: IsSubType<Module<T>, T>
+impl<T: Trait + Send + Sync> sp_std::fmt::Debug for LimitParathreadCommits<T> where
+	<T as frame_system::Trait>::Call: IsSubType<Module<T>, T>
 {
-	fn fmt(&self, f: &mut rstd::fmt::Formatter) -> rstd::fmt::Result {
+	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
 		write!(f, "LimitParathreadCommits<T>")
 	}
 }
@@ -502,16 +503,16 @@ pub enum Error {
 }
 
 impl<T: Trait + Send + Sync> SignedExtension for LimitParathreadCommits<T> where
-	<T as system::Trait>::Call: IsSubType<Module<T>, T>
+	<T as frame_system::Trait>::Call: IsSubType<Module<T>, T>
 {
 	type AccountId = T::AccountId;
-	type Call = <T as system::Trait>::Call;
+	type Call = <T as frame_system::Trait>::Call;
 	type AdditionalSigned = ();
 	type Pre = ();
 	type DispatchInfo = DispatchInfo;
 
 	fn additional_signed(&self)
-		-> rstd::result::Result<Self::AdditionalSigned, TransactionValidityError>
+		-> sp_std::result::Result<Self::AdditionalSigned, TransactionValidityError>
 	{
 		Ok(())
 	}
@@ -558,7 +559,7 @@ impl<T: Trait + Send + Sync> SignedExtension for LimitParathreadCommits<T> where
 
 				// updated the selected threads.
 				selected_threads.insert(pos, (*id, collator.clone()));
-				rstd::mem::drop(selected_threads);
+				sp_std::mem::drop(selected_threads);
 				SelectedThreads::put(upcoming_selected_threads);
 
 				// provides the state-transition for this head-data-hash; this should cue the pool
@@ -619,7 +620,7 @@ mod tests {
 		pub const MaximumBlockLength: u32 = 4 * 1024 * 1024;
 		pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
 	}
-	impl system::Trait for Test {
+	impl frame_system::Trait for Test {
 		type Origin = Origin;
 		type Call = Call;
 		type Index = u64;
@@ -726,7 +727,7 @@ mod tests {
 
 	type Balances = balances::Module<Test>;
 	type Parachains = parachains::Module<Test>;
-	type System = system::Module<Test>;
+	type System = frame_system::Module<Test>;
 	type Slots = slots::Module<Test>;
 	type Registrar = Module<Test>;
 	type RandomnessCollectiveFlip = randomness_collective_flip::Module<Test>;
@@ -743,7 +744,7 @@ mod tests {
 	];
 
 	fn new_test_ext(parachains: Vec<(ParaId, Vec<u8>, Vec<u8>)>) -> TestExternalities {
-		let mut t = system::GenesisConfig::default().build_storage::<Test>().unwrap();
+		let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
 		let authority_keys = [
 			Sr25519Keyring::Alice,
@@ -801,7 +802,7 @@ mod tests {
 				println!("Finalizing {}", System::block_number());
 				if !parachains::DidUpdate::exists() {
 					println!("Null heads update");
-					assert_ok!(Parachains::set_heads(system::RawOrigin::None.into(), vec![]));
+					assert_ok!(Parachains::set_heads(frame_system::RawOrigin::None.into(), vec![]));
 				}
 				Slots::on_finalize(System::block_number());
 				Parachains::on_finalize(System::block_number());
@@ -1256,8 +1257,8 @@ mod tests {
 
 			let good_para_id = user_id(0);
 			let bad_para_id = user_id(1);
-			let bad_head_hash = <Test as system::Trait>::Hashing::hash(&vec![1, 2, 1]);
-			let good_head_hash = <Test as system::Trait>::Hashing::hash(&vec![1, 1, 1]);
+			let bad_head_hash = <Test as frame_system::Trait>::Hashing::hash(&vec![1, 2, 1]);
+			let good_head_hash = <Test as frame_system::Trait>::Hashing::hash(&vec![1, 1, 1]);
 			let info = DispatchInfo::default();
 
 			// Allow for threads
@@ -1320,7 +1321,7 @@ mod tests {
 			for x in 0..5 {
 				let para_id = user_id(x as u32);
 				let collator_id = CollatorId::default();
-				let head_hash = <Test as system::Trait>::Hashing::hash(&vec![x; 3]);
+				let head_hash = <Test as frame_system::Trait>::Hashing::hash(&vec![x; 3]);
 				let inner = super::Call::select_parathread(para_id, collator_id, head_hash);
 				let call = Call::Registrar(inner);
 				let info = DispatchInfo::default();

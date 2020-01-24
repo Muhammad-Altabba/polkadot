@@ -19,16 +19,16 @@
 //! In the future, it is planned that this module will handle dispute resolution
 //! as well.
 
-use rstd::prelude::*;
-use codec::{Encode, Decode};
+use sp_std::prelude::*;
+use parity_scale_codec::{Encode, Decode};
 use frame_support::{decl_storage, decl_module, ensure, dispatch::DispatchResult, traits::Get};
 
-use primitives::{Hash, parachain::{AttestedCandidate, CandidateReceipt, Id as ParaId}};
+use polkadot_primitives::{Hash, parachain::{AttestedCandidate, CandidateReceipt, Id as ParaId}};
 use sp_runtime::RuntimeDebug;
 use sp_staking::SessionIndex;
 
-use inherents::{ProvideInherent, InherentData, MakeFatalError, InherentIdentifier};
-use system::ensure_none;
+use sp_inherents::{ProvideInherent, InherentData, MakeFatalError, InherentIdentifier};
+use frame_system::ensure_none;
 
 /// Parachain blocks included in a recent relay-chain block.
 #[derive(Encode, Decode)]
@@ -71,7 +71,7 @@ impl RewardAttestation for () {
 	}
 }
 
-impl<T: staking::Trait> RewardAttestation for staking::Module<T> {
+impl<T: pallet_staking::Trait> RewardAttestation for pallet_staking::Module<T> {
 	fn reward_immediate(validator_indices: impl IntoIterator<Item=u32>) {
 		// The number of points to reward for a validity statement.
 		// https://research.web3.foundation/en/latest/polkadot/Token%20Economics/#payment-details
@@ -81,7 +81,7 @@ impl<T: staking::Trait> RewardAttestation for staking::Module<T> {
 	}
 }
 
-pub trait Trait: session::Trait {
+pub trait Trait: pallet_session::Trait {
 	/// How many blocks ago we're willing to accept attestations for.
 	type AttestationPeriod: Get<Self::BlockNumber>;
 
@@ -108,7 +108,7 @@ decl_storage! {
 
 decl_module! {
 	/// Parachain-attestations module.
-	pub struct Module<T: Trait> for enum Call where origin: <T as system::Trait>::Origin {
+	pub struct Module<T: Trait> for enum Call where origin: <T as frame_system::Trait>::Origin {
 		/// Provide candidate receipts for parachains, in ascending order by id.
 		fn more_attestations(origin, _more: MoreAttestations) -> DispatchResult {
 			ensure_none(origin)?;
@@ -178,7 +178,7 @@ pub type InherentType = MoreAttestations;
 
 impl<T: Trait> ProvideInherent for Module<T> {
 	type Call = Call<T>;
-	type Error = MakeFatalError<inherents::Error>;
+	type Error = MakeFatalError<sp_inherents::Error>;
 	const INHERENT_IDENTIFIER: InherentIdentifier = MORE_ATTESTATIONS_IDENTIFIER;
 
 	fn create_inherent(data: &InherentData) -> Option<Self::Call> {

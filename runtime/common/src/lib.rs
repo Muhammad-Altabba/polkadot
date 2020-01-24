@@ -27,7 +27,7 @@ pub mod slots;
 pub mod crowdfund;
 pub mod impls;
 
-use primitives::BlockNumber;
+use polkadot_primitives::BlockNumber;
 use sp_runtime::Perbill;
 use frame_support::{
 	parameter_types, traits::Currency,
@@ -35,18 +35,18 @@ use frame_support::{
 };
 
 #[cfg(feature = "std")]
-pub use staking::StakerStatus;
+pub use pallet_staking::StakerStatus;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
-pub use timestamp::Call as TimestampCall;
-pub use balances::Call as BalancesCall;
+pub use pallet_timestamp::Call as TimestampCall;
+pub use pallet_balances::Call as BalancesCall;
 pub use attestations::{Call as AttestationsCall, MORE_ATTESTATIONS_IDENTIFIER};
 pub use parachains::Call as ParachainsCall;
 
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub use impls::{CurrencyToVoteHandler, TargetedFeeAdjustment, ToAuthor, WeightToFee};
 
-pub type NegativeImbalance<T> = <balances::Module<T> as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
+pub type NegativeImbalance<T> = <pallet_balances::Module<T> as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
 
 parameter_types! {
 	pub const BlockHashCount: BlockNumber = 250;
